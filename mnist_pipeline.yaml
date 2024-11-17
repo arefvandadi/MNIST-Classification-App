@@ -1,0 +1,197 @@
+# PIPELINE DEFINITION
+# Name: mnist-pipeline
+components:
+  comp-load-data:
+    executorLabel: exec-load-data
+    outputDefinitions:
+      artifacts:
+        gc_test_dataset_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        gc_train_dataset_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-trainer:
+    executorLabel: exec-trainer
+    inputDefinitions:
+      artifacts:
+        gc_train_dataset_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        batch_size:
+          parameterType: NUMBER_INTEGER
+        learning_rate:
+          parameterType: NUMBER_DOUBLE
+        num_epochs:
+          parameterType: NUMBER_INTEGER
+deploymentSpec:
+  executors:
+    exec-load-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - load_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'torch' 'torchvision'\
+          \ 'google-cloud-storage' 'kfp' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef load_data(gc_train_dataset_path: OutputPath(\"Dataset\"), gc_test_dataset_path:\
+          \ OutputPath(\"Dataset\")): # type: ignore\n\n    import torch\n    import\
+          \ torchvision\n    import torchvision.transforms as transforms\n    from\
+          \ google.cloud import storage\n\n    BUCKET_NAME = \"mnist_classification_bucket\"\
+          \n\n    #Let's import the famous MNIST data\n    #torchvision.transforms.ToTensor\
+          \ --> Convert a PIL Image or numpy.ndarray to tensor\n    train_dataset\
+          \ = torchvision.datasets.MNIST(root = './data',train = True, transform =\
+          \ transforms.ToTensor(), download = True)\n    test_dataset = torchvision.datasets.MNIST(root\
+          \ = './data',train = False, transform = transforms.ToTensor())\n\n    train_data_path\
+          \ = \"./train_data.pt\"\n    test_data_path = \"./test_data.pt\"\n\n   \
+          \ torch.save(train_dataset, train_data_path)\n    torch.save(test_dataset,\
+          \ test_data_path)\n    # torch.save({\"data\": train_dataset.data, \"targets\"\
+          : train_dataset.targets}, train_data_path)\n    # torch.save({\"data\":\
+          \ test_dataset.data, \"targets\": test_dataset.targets}, test_data_path)\n\
+          \n\n    # Creating Storage client and uploading datasets to GC\n    storage_client\
+          \ = storage.Client()\n    bucket = storage_client.bucket(BUCKET_NAME)\n\n\
+          \    gc_train_dataset_destination_blob_path = \"datasets/train_data.pt\"\
+          \n    # train_blob = bucket.blob(gc_train_dataset_destination_blob_path)\n\
+          \    # train_blob.upload_from_file(train_data_path)\n    with open(train_data_path,\
+          \ \"rb\") as train_file:\n        bucket.blob(gc_train_dataset_destination_blob_path).upload_from_file(train_file)\n\
+          \n    gc_test_dataset_destination_blob_path = \"datasets/test_data.pt\"\n\
+          \    # test_blob = bucket.blob(gc_test_dataset_destination_blob_path)\n\
+          \    # test_blob.upload_from_file(test_data_path)\n    with open(test_data_path,\
+          \ \"rb\") as test_file:\n        bucket.blob(gc_test_dataset_destination_blob_path).upload_from_file(test_file)\n\
+          \n    # gc_train_dataset_path = f\"gs://{BUCKET_NAME}/{gc_train_dataset_destination_blob_path}\"\
+          \n    # gc_test_dataset_path = f\"gs://{BUCKET_NAME}/{gc_test_dataset_destination_blob_path}\"\
+          \n\n    with open(gc_train_dataset_path, \"w\") as train_output:\n     \
+          \   train_output.write(f\"gs://{BUCKET_NAME}/{gc_train_dataset_destination_blob_path}\"\
+          )\n\n    with open(gc_test_dataset_path, \"w\") as test_output:\n      \
+          \  test_output.write(f\"gs://{BUCKET_NAME}/{gc_test_dataset_destination_blob_path}\"\
+          )\n    # return gc_train_dataset_path, gc_test_dataset_path\n\n"
+        image: python:3.9
+    exec-trainer:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - trainer
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'torch' 'torchvision'\
+          \ 'google-cloud-storage' 'numpy' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef trainer(gc_train_dataset_path: InputPath(\"Dataset\"), batch_size:\
+          \ int, learning_rate: float, num_epochs: int):# type: ignore\n    import\
+          \ torch\n    import torch.nn as nn\n    import torch.nn.functional as F\n\
+          \    from google.cloud import storage\n\n    ##############   CNN Model\
+          \ Definition   ###############\n    class MNIST_CNN(nn.Module):\n      \
+          \  def __init__(self):\n            super(MNIST_CNN, self).__init__()\n\
+          \            self.conv1 = nn.Conv2d(1, 10, kernel_size = 5)\n          \
+          \  self.conv2 = nn.Conv2d(10, 20, kernel_size = 5)\n            self.map\
+          \ = nn.MaxPool2d(2)\n\n            self.fc = nn.Linear(320,10)\n\n     \
+          \   def forward(self,x):\n            in_size = x.size(0)\n            x\
+          \ = F.relu(self.map(self.conv1(x)))\n            x = F.relu(self.map(self.conv2(x)))\n\
+          \            x = x.view(in_size,-1) #flatten the tensor\n\n            x\
+          \ = self.fc(x)\n\n            return F.log_softmax(x)\n\n\n    model = MNIST_CNN()\n\
+          \    model.train()\n\n\n    BUCKET_NAME = \"mnist_classification_bucket\"\
+          \n    # Creating Storage client and uploading datasets to GC\n    storage_client\
+          \ = storage.Client()\n    bucket = storage_client.bucket(BUCKET_NAME)\n\n\
+          \    # train_dataset = torch.load(gc_train_dataset_path, weights_only=True)\n\
+          \    bucket.blob(\"datasets/train_data.pt\").download_to_filename(\"./train_data.pt\"\
+          )\n    train_data = torch.load(\"./train_data.pt\")\n\n    train_loader\
+          \ = torch.utils.data.DataLoader(dataset = train_data, batch_size = batch_size,\
+          \ shuffle = True)\n    # train_dataset = torch.utils.data.TensorDataset(train_data[\"\
+          data\"], train_data[\"targets\"])\n    # train_loader = torch.utils.data.DataLoader(dataset=train_dataset,\
+          \ batch_size=100, shuffle=True)\n\n\n    #Loss Definition. We are going\
+          \ to use Cross Entropy Loss which will include Softmax activation function\
+          \ to output possibilities\n    criterion = nn.CrossEntropyLoss()\n    optimizer\
+          \ = torch.optim.Adam(model.parameters(), lr= learning_rate)\n\n    # batch_num\
+          \ = len(train_loader)\n\n    for epoch in range(num_epochs):\n        for\
+          \ i, (samples, labels) in enumerate(train_loader):\n\n            #Let's\
+          \ reshape samples from 4 dimension to 2 dim, each row having 28*28 elements\
+          \ for each image\n            #samples = samples.reshape(-1,28*28).to(device)\n\
+          \n            #Forward pass\n            label_pred = model(samples)\n\n\
+          \            #Loss\n            Loss = criterion(label_pred, labels)\n\n\
+          \            #Zero grads\n            optimizer.zero_grad()\n\n        \
+          \    #backward\n            Loss.backward()\n\n            #updating parameters\n\
+          \            optimizer.step()\n\n        print(\"epoch = {} / {}  :  Loss\
+          \ = {Lossvalue:.4f}\".format(epoch+1, num_epochs, Lossvalue = Loss.item()))\n\
+          \n\n    ### Save it first in the containerized environment, and then upload\
+          \ it to GC\n\n    model_output_path = \"./model_state_dict.pt\"\n    torch.save(model.state_dict(),\
+          \ model_output_path)\n\n    gc_model_output_path = \"model/model_state_dict.pt\"\
+          \n    with open(model_output_path, \"rb\") as model_state:\n        bucket.blob(gc_model_output_path).upload_from_file(model_state)\n\
+          \n"
+        image: python:3.9
+pipelineInfo:
+  name: mnist-pipeline
+root:
+  dag:
+    tasks:
+      load-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-load-data
+        taskInfo:
+          name: load-data
+      trainer:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-trainer
+        dependentTasks:
+        - load-data
+        inputs:
+          artifacts:
+            gc_train_dataset_path:
+              taskOutputArtifact:
+                outputArtifactKey: gc_train_dataset_path
+                producerTask: load-data
+          parameters:
+            batch_size:
+              runtimeValue:
+                constant: 100.0
+            learning_rate:
+              runtimeValue:
+                constant: 0.001
+            num_epochs:
+              runtimeValue:
+                constant: 2.0
+        taskInfo:
+          name: trainer
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.10.0
