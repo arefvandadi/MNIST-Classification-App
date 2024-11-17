@@ -156,12 +156,105 @@ def trainer(gc_train_dataset_path: InputPath("Dataset"), batch_size: int, learni
     
     ### Save it first in the containerized environment, and then upload it to GC
 
-    model_output_path = "./model_state_dict.pt"
-    torch.save(model.state_dict(), model_output_path)
+    model_state_output_path = "./model_state_dict.pt"
+    torch.save(model.state_dict(), model_state_output_path)
 
-    gc_model_output_path = "model/model_state_dict.pt"
-    with open(model_output_path, "rb") as model_state:
-        bucket.blob(gc_model_output_path).upload_from_file(model_state)
+    gc_model_state_output_path = "model/model_state_dict.pt"
+    with open(model_state_output_path, "rb") as model_state:
+        bucket.blob(gc_model_state_output_path).upload_from_file(model_state)
+
+
+############## Evaluation Component ###############
+@dsl.component(
+        packages_to_install=["torch", "torchvision", "google-cloud-storage", "numpy"]
+)
+def evaluator(gc_test_dataset_path: InputPath("Dataset"), accuracy_output: OutputPath("Metrics"), batch_size: int):# type: ignore
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    from google.cloud import storage
+
+
+    ##############   CNN Model Definition   ###############
+    class MNIST_CNN(nn.Module):
+        def __init__(self):
+            super(MNIST_CNN, self).__init__()
+            self.conv1 = nn.Conv2d(1, 10, kernel_size = 5)
+            self.conv2 = nn.Conv2d(10, 20, kernel_size = 5)
+            self.map = nn.MaxPool2d(2)
+            
+            self.fc = nn.Linear(320,10)
+        
+        def forward(self,x):
+            in_size = x.size(0)
+            x = F.relu(self.map(self.conv1(x)))
+            x = F.relu(self.map(self.conv2(x)))
+            x = x.view(in_size,-1) #flatten the tensor
+            
+            x = self.fc(x)
+            
+            return F.log_softmax(x)
+    
+
+    BUCKET_NAME = "mnist_classification_bucket"
+    # Creating Storage client
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(BUCKET_NAME)
+
+    # Downloading Model State Dict from GC Bucket to Container Local Environment
+    gc_model_state_output_path = "model/model_state_dict.pt"
+    model_state_output_path = "./model_state_dict.pt"
+    bucket.blob(gc_model_state_output_path).download_to_filename(model_state_output_path)
+    model_state = torch.load(model_state_output_path)
+    
+    # Load the downloaded model state into the model
+    model = MNIST_CNN()
+    model.load_state_dict(model_state)
+    model.eval()
+
+    # Downloading Test Dataset from GC Bucket to Container Local Environment
+    bucket.blob("datasets/test_data.pt").download_to_filename("./test_data.pt")
+    test_data = torch.load("./test_data.pt")
+    test_loader = torch.utils.data.DataLoader(dataset = test_data, batch_size = batch_size, shuffle = False)
+
+
+    with torch.no_grad():
+        n_correct = 0
+        n_samples = 0
+        for i, (samples, labels) in enumerate(test_loader):
+            
+            #Let's reshape test samples from 4 dimension to 2 dim, each row having 28*28 elements for each image
+            #samples = samples.reshape(-1,28*28).to(device)
+            # labels = labels.to(device)
+            
+            #test samples predicted results using the train Model
+            test_label_pred = model(samples)
+            
+            #Notice that we are not using softmax here to get the probabilities. The biggest value has the more probability... 
+            #...and is the predicted class
+            #Also torch.max() returns the max value and the index for max value. We only need the index whih represents the class
+            _, class_pred = torch.max(test_label_pred,1)  # number 1 in torch.max method means max along the rows. 0 means columns
+            n_samples += labels.shape[0]
+            n_correct += (class_pred == labels).sum().item()
+        
+        print('\n')
+        print('Number of Tested Samples      = ',n_samples)
+        print('Number of Correct Predictions = ',n_correct)
+        acc = 100 * n_correct/n_samples
+        print("Accuracy = {Accuracy:.2f}%".format(Accuracy = acc))
+
+    # Save accuracy to output
+    local_accuracy_file_path = "./accuracy.txt"
+    with open(local_accuracy_file_path, "w") as f:
+        f.write(f"accuracy: {acc:.2f}")
+
+    # Upload accuracy file to the bucket
+    accuracy_blob_path = "model/accuracy.txt"  # Define where to save in GCS
+    bucket.blob(accuracy_blob_path).upload_from_filename(local_accuracy_file_path)
+
+    # Save the path to the accuracy file in the output
+    with open(accuracy_output, "w") as f:
+        f.write(f"gs://{BUCKET_NAME}/{accuracy_blob_path}")
 
 
 
@@ -170,6 +263,9 @@ def mnist_pipeline():
     load_data_op = load_data()
 
     trainer(gc_train_dataset_path=load_data_op.outputs["gc_train_dataset_path"] , batch_size=100, learning_rate=0.001, num_epochs=2)
+
+    evaluator(gc_test_dataset_path=load_data_op.outputs["gc_test_dataset_path"], batch_size=100)
+
 
 compiler.Compiler().compile(pipeline_func=mnist_pipeline, package_path="mnist_pipeline.yaml")
 
