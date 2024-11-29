@@ -11,5 +11,24 @@
     <button id="clear">Clear</button>
     <button id="predict">Predict</button>
     <p id="result"></p>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+
+        canvas.addEventListener('mousedown', () => isDrawing = true);
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mousemove', draw);
+
+        function draw(event) {
+            if (!isDrawing) return;
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(event.offsetX, event.offsetY, 8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    </script>
+    
 </body>
 </html>
