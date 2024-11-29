@@ -7,12 +7,16 @@
 </head>
 <body>
     <h1>Draw a Digit</h1>
+    
+    <!-- Defiing a Canvas, clear and predict buttons and a space for printing predicted digit (i.e. result) -->
     <canvas id="canvas" width="280" height="280"></canvas>
     <button id="clear">Clear</button>
     <button id="predict">Predict</button>
     <p id="result"></p>
 
     <script>
+
+        // Defining a functionality for Canvas element defined above
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         let isDrawing = false;
@@ -29,11 +33,13 @@
             ctx.fill();
         }
 
+        // Defininng the functionality for the Clear button
         document.getElementById("clear").addEventListener("click", () =>{
             ctx.clearRect(0, 0, canvas.width, canvas.height)
             document.getElementById('result').innerText = ""
         })
 
+        // Defininng the functionality for the Predict button
         document.getElementById("predict").addEventListener("click", () =>{
             document.getElementById('result').innerText = `Predicted Digit: 3`
         })
