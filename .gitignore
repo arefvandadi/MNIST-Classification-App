@@ -3,6 +3,7 @@ MNIST/
 data/MNIST
 SM/
 Notebooks/
+drawing.png
 
 # sandbox environment for testing code snippets. Will be deleted at the end.
 scratch.py

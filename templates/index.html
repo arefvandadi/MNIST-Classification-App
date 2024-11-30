@@ -19,6 +19,9 @@
         // Defining a functionality for Canvas element defined above
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        // Fill the canvas with white before drawing
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         let isDrawing = false;
 
         canvas.addEventListener('mousedown', () => isDrawing = true);
@@ -27,7 +30,7 @@
 
         function draw(event) {
             if (!isDrawing) return;
-            ctx.fillStyle = 'black';
+            ctx.fillStyle = 'white';
             ctx.beginPath();
             ctx.arc(event.offsetX, event.offsetY, 8, 0, Math.PI * 2);
             ctx.fill();
