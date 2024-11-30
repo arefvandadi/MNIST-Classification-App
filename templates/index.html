@@ -7,7 +7,7 @@
 </head>
 <body>
     <h1>Draw a Digit</h1>
-    
+
     <!-- Defiing a Canvas, clear and predict buttons and a space for printing predicted digit (i.e. result) -->
     <canvas id="canvas" width="280" height="280"></canvas>
     <button id="clear">Clear</button>
@@ -41,7 +41,13 @@
 
         // Defininng the functionality for the Predict button
         document.getElementById("predict").addEventListener("click", () =>{
-            document.getElementById('result').innerText = `Predicted Digit: 3`
+            const dataUrl = canvas.toDataURL("image/png")
+            const response = fetch("/predict", {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ "image": dataUrl })
+            })
+            // document.getElementById('result').innerText = `Predicted Digit: 3`
         })
         
     </script>
