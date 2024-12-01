@@ -6,6 +6,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from google.cloud import storage
+import os
 
 app = Flask(__name__)
 
@@ -34,9 +36,9 @@ def predict():
 
 
     ######################### Model Definition:
-    class NeuralNet(nn.Module):
+    class MNIST_CNN(nn.Module):
         def __init__(self):
-            super(NeuralNet, self).__init__()
+            super(MNIST_CNN, self).__init__()
             self.conv1 = nn.Conv2d(1, 10, kernel_size = 5)
             self.conv2 = nn.Conv2d(10, 20, kernel_size = 5)
             self.map = nn.MaxPool2d(2)
@@ -53,9 +55,31 @@ def predict():
             
             return F.log_softmax(x)
 
-    model = NeuralNet()
-    model.load_state_dict(torch.load("./Notebooks/CNN_Model_state_dict.pt"))
+
+    #### Loading state_dict from Google Cloud
+    model_state_output_path = "./model_state_dict.pt"
+
+    # if statement checks if the model_state file is already downloaded.
+    if not os.path.exists(model_state_output_path):
+        BUCKET_NAME = "mnist_classification_bucket"
+        # Creating Storage client
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(BUCKET_NAME)
+
+        # Downloading Model State Dict from GC Bucket to Container Local Environment
+        gc_model_state_output_path = "model/model_state_dict.pt"
+        bucket.blob(gc_model_state_output_path).download_to_filename(model_state_output_path)
+    gc_model_state = torch.load(model_state_output_path)
+
+    model = MNIST_CNN()
+    model.load_state_dict(gc_model_state)
     model.eval()
+    
+
+    ##### Load state_dict from local folder
+    # model = MNIST_CNN()
+    # model.load_state_dict(torch.load("./Notebooks/CNN_Model_state_dict.pt"))
+    # model.eval()
 
     label_pred = model(image_array)
     _, class_pred = torch.max(label_pred,1)
