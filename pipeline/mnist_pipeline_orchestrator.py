@@ -267,7 +267,7 @@ def mnist_pipeline():
     evaluator(gc_test_dataset_path=load_data_op.outputs["gc_test_dataset_path"], batch_size=100)
 
 
-compiler.Compiler().compile(pipeline_func=mnist_pipeline, package_path="mnist_pipeline.yaml")
+compiler.Compiler().compile(pipeline_func=mnist_pipeline, package_path="./pipeline/mnist_pipeline.yaml")
 
 # Execution on Google Cloud
 from google.cloud import aiplatform
@@ -287,7 +287,7 @@ aiplatform.init(
 
 job = PipelineJob(
         ### path of the yaml file to execute
-        template_path="./mnist_pipeline.yaml",
+        template_path="./pipeline/mnist_pipeline.yaml",
         ### name of the pipeline
         display_name=f"mnist_classification_pipeline",
         ### pipeline arguments (inputs)
