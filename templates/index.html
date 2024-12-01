@@ -45,13 +45,16 @@
         })
 
         // Defininng the functionality for the Predict button
-        document.getElementById("predict").addEventListener("click", () =>{
+        document.getElementById("predict").addEventListener("click", async () =>{
             const dataUrl = canvas.toDataURL("image/png") // if the image is too big, blob can be used to send the image as binary data
-            const response = fetch("/predict", {
+            const response = await fetch ("/predict", {
                 method: "POST",
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ "image": dataUrl })
             })
+            const result = await response.json();
+            // console.log("testing")
+            document.getElementById('result').innerText = `Predicted Digit: ${result.digit}`
             // document.getElementById('result').innerText = `Predicted Digit: 3`
         })
         

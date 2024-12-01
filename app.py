@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from PIL import Image
 from io import BytesIO
 import base64
@@ -59,8 +59,8 @@ def predict():
 
     label_pred = model(image_array)
     _, class_pred = torch.max(label_pred,1)
-    print(class_pred.item())
-    return "Test"
+    # print(class_pred.item())
+    return jsonify({'digit': int(class_pred.item())})
 
 
 if __name__ == "__main__":
