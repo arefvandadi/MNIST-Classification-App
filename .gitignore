@@ -2,8 +2,8 @@
 MNIST/
 data/MNIST
 SM/
-Notebooks/
-drawing.png
+Notebooks/saved_models_datasets
+Notebooks/data
 
 # sandbox environment for testing code snippets. Will be deleted at the end.
 scratch.py
