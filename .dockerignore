@@ -1,0 +1,10 @@
+README.md
+.venv
+__pycache__
+Dockerfile
+data
+MNIST
+Notebooks
+pipeline
+TODO.md
+.gitignore
