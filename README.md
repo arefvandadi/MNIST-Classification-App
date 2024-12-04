@@ -9,4 +9,5 @@ A simple web app that allows the user to write a digit between 0-9 and predicts 
 # Technologies Used
 - **Backend**: Flask
 - **Programming Language**: Python
+- **Machine Learning Toolkit**: Kubeflow
 - **Cloud Hosting**: Google Cloud Platform (GCP)
