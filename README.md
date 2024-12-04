@@ -11,3 +11,9 @@ A simple web app that allows the user to write a digit between 0-9 and predicts 
 - **Programming Language**: Python
 - **Machine Learning Toolkit**: Kubeflow
 - **Cloud Hosting**: Google Cloud Platform (GCP)
+<br />
+
+# How It Works
+Draw a digit between 0-9 on the black canvas. Press `Predict` button to see the prediction of the ML model. Press `Clear` button to try again.
+
+![MNIST App Interface](./data/images/app_interface.png)
